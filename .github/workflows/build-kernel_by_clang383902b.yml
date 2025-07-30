@@ -164,22 +164,62 @@ jobs:
       run: |
         cd $GITHUB_WORKSPACE/kernel_workspace/android-kernel
         export KBUILD_BUILD_HOST=Github-Action
-        export KBUILD_BUILD_USER=$(echo ${{ github.actor }} | tr A-Z a-z)  
+        export KBUILD_BUILD_USER=$(echo ${{ github.actor }} | tr A-Z a-z)
+        
+        GCC_PATH="$GITHUB_WORKSPACE/kernel_workspace/clang-aosp/google_gcc/aarch64-linux-android-4.9/bin:$GITHUB_WORKSPACE/kernel_workspace/clang-aosp/google_gcc/arm-linux-androideabi-4.9/bin"
+        CLANG_PATH="$GITHUB_WORKSPACE/kernel_workspace/clang-aosp/google_clang/clang-r383902b-11.0.2/bin"
+        
         if [ ${{ env.USE_GCC }} = true ]; then
             echo "ENABLE_CCACHE=flase" >> $GITHUB_ENV
-            export PATH=$GITHUB_WORKSPACE/kernel_workspace/clang-aosp/google_gcc/aarch64-linux-android-4.9/bin:$GITHUB_WORKSPACE/kernel_workspace/clang-aosp/google_gcc/arm-linux-androideabi-4.9/bin:$PATH
+            export PATH=$GCC_PATH:$PATH
             make -j$(nproc --all) O=out ARCH=${{ env.ARCH }} ${{ env.EXTRA_CMDS }} CROSS_COMPILE=aarch64-linux-android- CROSS_COMPILE_ARM32=arm-linux-androideabi- ${{ env.KERNEL_CONFIG }}
             make -j$(nproc --all) O=out ARCH=${{ env.ARCH }} ${{ env.EXTRA_CMDS }} CROSS_COMPILE=aarch64-linux-android- CROSS_COMPILE_ARM32=arm-linux-androideabi-  
         fi
         
         if [ ${{ env.ENABLE_CCACHE }} = true ]; then
-            export PATH=$GITHUB_WORKSPACE/kernel_workspace/clang-aosp/google_clang/clang-r383902b-11.0.2/bin:$GITHUB_WORKSPACE/kernel_workspace/clang-aosp/google_gcc/aarch64-linux-android-4.9/bin:$GITHUB_WORKSPACE/kernel_workspace/clang-aosp/google_gcc/arm-linux-androideabi-4.9/bin:$PATH
-            make -j$(nproc --all) CC="ccache clang" O=out ARCH=${{ env.ARCH }} ${{ env.CUSTOM_CMDS }} ${{ env.EXTRA_CMDS }} CROSS_COMPILE=aarch64-linux-android- CROSS_COMPILE_ARM32=arm-linux-androideabi- ${{ env.KERNEL_CONFIG }}
-            make -j$(nproc --all) CC="ccache clang" O=out ARCH=${{ env.ARCH }} ${{ env.CUSTOM_CMDS }} ${{ env.EXTRA_CMDS }} CROSS_COMPILE=aarch64-linux-android- CROSS_COMPILE_ARM32=arm-linux-androideabi- 
+            export PATH=$CLANG_PATH:$GCC_PATH:$PATH
+            
+            CLANG_TRIPLE="aarch64-linux-gnu-"
+            CROSS_COMPILE="$CLANG_PATH/clang-"
+            
+            make -j$(nproc --all) CC="ccache clang" O=out ARCH=${{ env.ARCH }} \
+                ${{ env.CUSTOM_CMDS }} ${{ env.EXTRA_CMDS }} \
+                CROSS_COMPILE="$CROSS_COMPILE" \
+                CLANG_TRIPLE="$CLANG_TRIPLE" \
+                CROSS_COMPILE_ARM32=arm-linux-androideabi- \
+                ${{ env.KERNEL_CONFIG }} \
+                CONFIG_CC_IS_CLANG=y \
+                CONFIG_CLANG_VERSION=11 \
+                CONFIG_USE_LD_LLD=y
+            
+            make -j$(nproc --all) CC="ccache clang" O=out ARCH=${{ env.ARCH }} \
+                ${{ env.CUSTOM_CMDS }} ${{ env.EXTRA_CMDS }} \
+                CROSS_COMPILE="$CROSS_COMPILE" \
+                CLANG_TRIPLE="$CLANG_TRIPLE" \
+                CROSS_COMPILE_ARM32=arm-linux-androideabi- \
+                LLD=1
         else
-            export PATH=$GITHUB_WORKSPACE/kernel_workspace/clang-aosp/google_clang/clang-r383902b-11.0.2/bin:$GITHUB_WORKSPACE/kernel_workspace/clang-aosp/google_gcc/aarch64-linux-android-4.9/bin:$GITHUB_WORKSPACE/kernel_workspace/clang-aosp/google_gcc/arm-linux-androideabi-4.9/bin:$PATH
-            make -j$(nproc --all) CC=clang O=out ARCH=${{ env.ARCH }} ${{ env.CUSTOM_CMDS }} ${{ env.EXTRA_CMDS }} CROSS_COMPILE=aarch64-linux-android- CROSS_COMPILE_ARM32=arm-linux-androideabi- ${{ env.KERNEL_CONFIG }}
-            make -j$(nproc --all) CC=clang O=out ARCH=${{ env.ARCH }} ${{ env.CUSTOM_CMDS }} ${{ env.EXTRA_CMDS }} CROSS_COMPILE=aarch64-linux-android- CROSS_COMPILE_ARM32=arm-linux-androideabi-  
+            export PATH=$CLANG_PATH:$GCC_PATH:$PATH
+            
+            CLANG_TRIPLE="aarch64-linux-gnu-"
+            CROSS_COMPILE="$CLANG_PATH/clang-"
+            
+            make -j$(nproc --all) CC=clang O=out ARCH=${{ env.ARCH }} \
+                ${{ env.CUSTOM_CMDS }} ${{ env.EXTRA_CMDS }} \
+                CROSS_COMPILE="$CROSS_COMPILE" \
+                CLANG_TRIPLE="$CLANG_TRIPLE" \
+                CROSS_COMPILE_ARM32=arm-linux-androideabi- \
+                ${{ env.KERNEL_CONFIG }} \
+                CONFIG_CC_IS_CLANG=y \
+                CONFIG_CLANG_VERSION=11 \
+                CONFIG_USE_LD_LLD=y
+            
+            make -j$(nproc --all) CC=clang O=out ARCH=${{ env.ARCH }} \
+                ${{ env.CUSTOM_CMDS }} ${{ env.EXTRA_CMDS }} \
+                CROSS_COMPILE="$CROSS_COMPILE" \
+                CLANG_TRIPLE="$CLANG_TRIPLE" \
+                CROSS_COMPILE_ARM32=arm-linux-androideabi- \
+                LLD=1
         fi
 
     - name: Check a kernel output files
