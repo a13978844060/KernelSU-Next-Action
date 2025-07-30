@@ -59,7 +59,7 @@ jobs:
       run: |
         cd $GITHUB_WORKSPACE/kernel_workspace
         mkdir clang-aosp
-        https://github.com/qssn70/clang-r383902b1.git 
+        https://github.com/qssn70/clang-r383902b1.git clang-aosp --depth=1
           
         
 
