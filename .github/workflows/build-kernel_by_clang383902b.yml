@@ -40,10 +40,6 @@ jobs:
         echo "DISABLE_FST=$(cat $CONFIG_ENV | grep -w "DISABLE_FST" | head -n 1 | cut -d "=" -f 2)" >> $GITHUB_ENV
         echo "ENABLE_NETHUNTER=$(cat $CONFIG_ENV | grep -w "ENABLE_NETHUNTER" | head -n 1 | cut -d "=" -f 2)" >> $GITHUB_ENV
         
-    - name: Set swap to 10G
-      uses: pierotofy/set-swap-space@master
-      with:
-        swap-size-gb: 10
 
     - name: Setup build kernel environment
       run: |
@@ -162,65 +158,34 @@ jobs:
 
     - name: Build kernel
       run: |
-        cd $GITHUB_WORKSPACE/kernel_workspace/android-kernel
+       cd $GITHUB_WORKSPACE/kernel_workspace/android-kernel
+        export PATH=$GITHUB_WORKSPACE/kernel_workspace/clang-aosp/bin:$PATH
         export KBUILD_BUILD_HOST=Github-Action
         export KBUILD_BUILD_USER=$(echo ${{ github.actor }} | tr A-Z a-z)
-        
-        GCC_PATH="$GITHUB_WORKSPACE/kernel_workspace/clang-aosp/google_gcc/aarch64-linux-android-4.9/bin:$GITHUB_WORKSPACE/kernel_workspace/clang-aosp/google_gcc/arm-linux-androideabi-4.9/bin"
-        CLANG_PATH="$GITHUB_WORKSPACE/kernel_workspace/clang-aosp/google_clang/clang-r383902b-11.0.2/bin"
-        
-        if [ ${{ env.USE_GCC }} = true ]; then
-            echo "ENABLE_CCACHE=flase" >> $GITHUB_ENV
-            export PATH=$GCC_PATH:$PATH
-            make -j$(nproc --all) O=out ARCH=${{ env.ARCH }} ${{ env.EXTRA_CMDS }} CROSS_COMPILE=aarch64-linux-android- CROSS_COMPILE_ARM32=arm-linux-androideabi- ${{ env.KERNEL_CONFIG }}
-            make -j$(nproc --all) O=out ARCH=${{ env.ARCH }} ${{ env.EXTRA_CMDS }} CROSS_COMPILE=aarch64-linux-android- CROSS_COMPILE_ARM32=arm-linux-androideabi-  
-        fi
-        
+        make -j$(nproc --all) CC=clang O=out ARCH=${{ env.ARCH }} ${{ env.CUSTOM_CMDS }} ${{ env.EXTRA_CMDS }} ${{ env.GCC_64 }} ${{ env.GCC_32 }} ${{ env.KERNEL_CONFIG }}
         if [ ${{ env.ENABLE_CCACHE }} = true ]; then
-            export PATH=$CLANG_PATH:$GCC_PATH:$PATH
-            
-            CLANG_TRIPLE="aarch64-linux-gnu-"
-            CROSS_COMPILE="$CLANG_PATH/clang-"
-            
-            make -j$(nproc --all) CC="ccache clang" O=out ARCH=${{ env.ARCH }} \
-                ${{ env.CUSTOM_CMDS }} ${{ env.EXTRA_CMDS }} \
-                CROSS_COMPILE="$CROSS_COMPILE" \
-                CLANG_TRIPLE="$CLANG_TRIPLE" \
-                CROSS_COMPILE_ARM32=arm-linux-androideabi- \
-                ${{ env.KERNEL_CONFIG }} \
-                CONFIG_CC_IS_CLANG=y \
-                CONFIG_CLANG_VERSION=11 \
-                CONFIG_USE_LD_LLD=y
-            
-            make -j$(nproc --all) CC="ccache clang" O=out ARCH=${{ env.ARCH }} \
-                ${{ env.CUSTOM_CMDS }} ${{ env.EXTRA_CMDS }} \
-                CROSS_COMPILE="$CROSS_COMPILE" \
-                CLANG_TRIPLE="$CLANG_TRIPLE" \
-                CROSS_COMPILE_ARM32=arm-linux-androideabi- \
-                LLD=1
+            make -j$(nproc --all) CC="ccache clang" O=out ARCH=${{ env.ARCH }} ${{ env.CUSTOM_CMDS }} ${{ env.EXTRA_CMDS }} ${{ env.GCC_64 }} ${{ env.GCC_32 }}
         else
-            export PATH=$CLANG_PATH:$GCC_PATH:$PATH
-            
-            CLANG_TRIPLE="aarch64-linux-gnu-"
-            CROSS_COMPILE="$CLANG_PATH/clang-"
-            
-            make -j$(nproc --all) CC=clang O=out ARCH=${{ env.ARCH }} \
-                ${{ env.CUSTOM_CMDS }} ${{ env.EXTRA_CMDS }} \
-                CROSS_COMPILE="$CROSS_COMPILE" \
-                CLANG_TRIPLE="$CLANG_TRIPLE" \
-                CROSS_COMPILE_ARM32=arm-linux-androideabi- \
-                ${{ env.KERNEL_CONFIG }} \
-                CONFIG_CC_IS_CLANG=y \
-                CONFIG_CLANG_VERSION=11 \
-                CONFIG_USE_LD_LLD=y
-            
-            make -j$(nproc --all) CC=clang O=out ARCH=${{ env.ARCH }} \
-                ${{ env.CUSTOM_CMDS }} ${{ env.EXTRA_CMDS }} \
-                CROSS_COMPILE="$CROSS_COMPILE" \
-                CLANG_TRIPLE="$CLANG_TRIPLE" \
-                CROSS_COMPILE_ARM32=arm-linux-androideabi- \
-                LLD=1
+            make -j$(nproc --all) CC=clang O=out ARCH=${{ env.ARCH }} ${{ env.CUSTOM_CMDS }} ${{ env.EXTRA_CMDS }} ${{ env.GCC_64 }} ${{ env.GCC_32 }}
         fi
+
+    - name: Check a kernel output files
+      run: |
+       cd $GITHUB_WORKSPACE/kernel_workspace
+       if [ -f android-kernel/out/arch/${{ env.ARCH }}/boot/${{ env.KERNEL_IMAGE_NAME }} ]; then
+           echo "CHECK_FILE_IS_OK=true" >> $GITHUB_ENV
+       else
+           echo "Kernel output file is empty"
+           exit 1
+       fi
+       if [ ${{ env.NEED_DTBO }} = true ]; then
+           if [ -f android-kernel/out/arch/${{ env.ARCH }}/boot/dtbo.img ]; then
+               echo "CHECK_DTBO_IS_OK=true" >> $GITHUB_ENV
+           else
+               echo "DTBO image is empty"
+               exit 1
+           fi
+       fi
 
     - name: Check a kernel output files
       run: |
