@@ -164,6 +164,7 @@ jobs:
             export PATH=$GITHUB_WORKSPACE/kernel_workspace/clang-aosp/google_gcc/aarch64-linux-android-4.9/bin:$GITHUB_WORKSPACE/kernel_workspace/clang-aosp/google_gcc/arm-linux-androideabi-4.9/bin:$PATH
             make -j$(nproc --all) O=out ARCH=${{ env.ARCH }} ${{ env.EXTRA_CMDS }} CROSS_COMPILE=aarch64-linux-android- CROSS_COMPILE_ARM32=arm-linux-androideabi- ${{ env.KERNEL_CONFIG }}
             make -j$(nproc --all) O=out ARCH=${{ env.ARCH }} ${{ env.EXTRA_CMDS }} CROSS_COMPILE=aarch64-linux-android- CROSS_COMPILE_ARM32=arm-linux-androideabi-  
+            make -j8 -C "$(pwd)" O="$(pwd)/out" CROSS_COMPILE="$BUILD_CROSS_COMPILE" CLANG_TRIPLE="$CLANG_TRIPLE" CROSS_COMPILE_ARM32="$CROSS_COMPILE_ARM32" CC=clang KBUILD_CFLAGS="-fPIC"  -Werror
         fi
         
         if [ ${{ env.ENABLE_CCACHE }} = true ]; then
